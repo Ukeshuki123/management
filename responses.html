@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checklist Responses - Employee Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .feature-icon {
+            font-size: 2em;
+            margin-bottom: 15px;
+            color: #0d6efd;
+        }
+        .response-card {
+            margin-bottom: 20px;
+        }
+        .response-header {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .response-details {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">Employee System</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">
+                            <i class="fas fa-home"></i> Home
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="employee.html">
+                            <i class="fas fa-user-plus"></i> Employees
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="checklist.html">
+                            <i class="fas fa-tasks"></i> Checklist
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="responses.html">
+                            <i class="fas fa-clipboard-list"></i> Responses
+                        </a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <span class="navbar-text me-3" id="userInfo"></span>
+                    <button class="btn btn-outline-light" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mt-4">
+        <h2 class="mb-4">Checklist Responses</h2>
+
+        <!-- Filters -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <select class="form-select" id="branchFilter">
+                    <option value="">All Branches</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="dateFilter">
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="sectionFilter">
+                    <option value="">All Sections</option>
+                    <option value="Kitchen">Kitchen</option>
+                    <option value="Cafe">Cafe</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100" onclick="applyFilters()">
+                    <i class="fas fa-filter"></i> Apply Filters
+                </button>
+            </div>
+        </div>
+
+        <!-- Responses List -->
+        <div id="responsesList">
+            <!-- Responses will be loaded here -->
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Check if user is logged in and is admin
+        window.addEventListener('load', async () => {
+            const token = localStorage.getItem('token');
+            const role = localStorage.getItem('role');
+            
+            if (!token || role !== 'admin') {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Display user info
+            const username = localStorage.getItem('username');
+            const branch = localStorage.getItem('branch');
+            document.getElementById('userInfo').innerHTML = `
+                <i class="fas fa-user"></i> ${username} (${role}) - ${branch}
+            `;
+
+            // Load responses
+            loadResponses();
+            loadBranches();
+        });
+
+        // Load branches for filter
+        async function loadBranches() {
+            try {
+                const response = await fetch('/api/branches', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const data = await response.json();
+                
+                const branchFilter = document.getElementById('branchFilter');
+                data.branches.forEach(branch => {
+                    const option = document.createElement('option');
+                    option.value = branch.name;
+                    option.textContent = branch.name;
+                    branchFilter.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading branches:', error);
+            }
+        }
+
+        // Load responses with filters
+        async function loadResponses() {
+            try {
+                const branchFilter = document.getElementById('branchFilter').value;
+                const dateFilter = document.getElementById('dateFilter').value;
+                const sectionFilter = document.getElementById('sectionFilter').value;
+
+                const response = await fetch(`/api/checklist/responses?branch=${branchFilter}&date=${dateFilter}&section=${sectionFilter}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const data = await response.json();
+
+                const responsesList = document.getElementById('responsesList');
+                responsesList.innerHTML = '';
+
+                data.responses.forEach(response => {
+                    const responseCard = document.createElement('div');
+                    responseCard.className = 'card response-card';
+                    responseCard.innerHTML = `
+                        <div class="card-body">
+                            <div class="response-header">
+                                <strong>Employee:</strong> ${response.username} |
+                                <strong>Branch:</strong> ${response.branch} |
+                                <strong>Date:</strong> ${new Date(response.submitted_at).toLocaleString()}
+                            </div>
+                            <div class="response-details">
+                                ${response.answers.map(answer => `
+                                    <p>
+                                        <strong>${answer.question_text}</strong><br>
+                                        ${answer.answer_text || answer.mcq_status}
+                                    </p>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    responsesList.appendChild(responseCard);
+                });
+            } catch (error) {
+                console.error('Error loading responses:', error);
+            }
+        }
+
+        // Apply filters
+        function applyFilters() {
+            loadResponses();
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            localStorage.removeItem('role');
+            localStorage.removeItem('branch');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

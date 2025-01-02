@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Management - Employee System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .employee-card {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">Employee System</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">
+                            <i class="fas fa-home"></i> Home
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="employee.html">
+                            <i class="fas fa-user-plus"></i> Employees
+                        </a>
+                    </li>
+                    <li class="nav-item admin-only">
+                        <a class="nav-link" href="checklist.html">
+                            <i class="fas fa-tasks"></i> Checklist
+                        </a>
+                    </li>
+                    <li class="nav-item admin-only">
+                        <a class="nav-link" href="responses.html">
+                            <i class="fas fa-clipboard-list"></i> Responses
+                        </a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <span class="navbar-text me-3" id="userInfo"></span>
+                    <button class="btn btn-outline-light" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mt-4">
+        <div class="row">
+            <!-- Add Employee Form -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Add New Employee</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="addEmployeeForm" onsubmit="return addEmployee(event)">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="password" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="role" class="form-label">Role</label>
+                                <select class="form-select" id="role" required>
+                                    <!-- Admin can add any role -->
+                                    <option value="user">Regular User</option>
+                                    <option value="management" class="admin-only">Management</option>
+                                    <option value="admin" class="admin-only">Admin</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="branch" class="form-label">Branch</label>
+                                <input type="text" class="form-control" id="branch" placeholder="Enter branch name" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add Employee</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employee List -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Employee List</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th>Branch</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="employeeList">
+                                    <!-- Employees will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentUserRole = '';
+
+        // Check authentication on page load
+        window.addEventListener('load', async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.replace('login.html');
+                return;
+            }
+
+            // Prevent going back to login
+            history.pushState(null, '', window.location.pathname);
+            window.addEventListener('popstate', function(event) {
+                history.pushState(null, '', window.location.pathname);
+            });
+
+            // Get user role
+            const role = localStorage.getItem('role');
+            
+            // Only allow admin and management roles
+            if (role !== 'admin' && role !== 'management') {
+                window.location.replace('index.html');
+                return;
+            }
+
+            currentUserRole = role;
+
+            // Display user info
+            const username = localStorage.getItem('username');
+            const branch = localStorage.getItem('branch');
+            document.getElementById('userInfo').innerHTML = `
+                <i class="fas fa-user"></i> ${username} (${role}) - ${branch}
+            `;
+
+            // Show/hide admin-only elements
+            if (role === 'admin') {
+                document.querySelectorAll('.admin-only').forEach(el => {
+                    el.style.display = '';
+                });
+            } else {
+                document.querySelectorAll('.admin-only').forEach(el => {
+                    el.style.display = 'none';
+                });
+                // Hide admin role option for management users
+                document.querySelectorAll('option[value="admin"]').forEach(el => {
+                    el.remove();
+                });
+            }
+
+            // Load employees
+            loadEmployees();
+        });
+
+        // Load employees
+        async function loadEmployees() {
+            try {
+                const response = await fetch('/api/employees', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const data = await response.json();
+                
+                const employeeList = document.getElementById('employeeList');
+                employeeList.innerHTML = '';
+
+                data.employees.forEach(employee => {
+                    // Management users can only see regular users
+                    if (currentUserRole === 'management' && employee.role !== 'user') {
+                        return;
+                    }
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${employee.username}</td>
+                        <td>${employee.role}</td>
+                        <td>${employee.branchname}</td>
+                        <td>
+                            ${currentUserRole === 'admin' || (currentUserRole === 'management' && employee.role === 'user') ? `
+                                <button class="btn btn-sm btn-danger" onclick="deleteEmployee('${employee.id}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </td>
+                    `;
+                    employeeList.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading employees:', error);
+            }
+        }
+
+        // Add employee
+        async function addEmployee(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+            const branch = document.getElementById('branch').value;
+
+            // Management users can only add regular users
+            if (currentUserRole === 'management' && role !== 'user') {
+                alert('Management users can only add regular users');
+                return false;
+            }
+
+            try {
+                const response = await fetch('/api/employees', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        username,
+                        password,
+                        role,
+                        branchname: branch
+                    })
+                });
+
+                if (response.ok) {
+                    alert('Employee added successfully');
+                    document.getElementById('addEmployeeForm').reset();
+                    loadEmployees();
+                } else {
+                    const data = await response.json();
+                    alert(data.message || 'Error adding employee');
+                }
+            } catch (error) {
+                console.error('Error adding employee:', error);
+                alert('Error adding employee');
+            }
+
+            return false;
+        }
+
+        // Delete employee
+        async function deleteEmployee(id) {
+            if (!confirm('Are you sure you want to delete this employee?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/employees/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (response.ok) {
+                    alert('Employee deleted successfully');
+                    loadEmployees();
+                } else {
+                    const data = await response.json();
+                    alert(data.message || 'Error deleting employee');
+                }
+            } catch (error) {
+                console.error('Error deleting employee:', error);
+                alert('Error deleting employee');
+            }
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            localStorage.removeItem('role');
+            localStorage.removeItem('branch');
+            window.location.replace('login.html');
+        }
+    </script>
+</body>
+</html>
